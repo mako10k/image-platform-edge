@@ -11,8 +11,17 @@
   "limits": {
     "cpu_ms": 50
   },
+  "routes": [
+    {
+      "pattern": "api-staging.image.mk10.org",
+      "custom_domain": true
+    }
+  ],
   "vars": {
-    "MAX_REQUEST_BYTES": "16777216"
+    "MAX_REQUEST_BYTES": "16777216",
+    "WORKOS_ISSUER": "https://daring-haven-18-staging.authkit.app",
+    "WORKOS_AUDIENCE": "client_01M0F65BD7G48KBFXZ2HT2NQFM",
+    "WORKOS_JWKS_URL": "https://daring-haven-18-staging.authkit.app/oauth2/jwks"
   },
   "ratelimits": [
     {
