@@ -1,0 +1,168 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
+
+import { createGateway, type Env, verifyWorkOsToken } from "../src/index.js";
+
+const principal = {
+  subject: "user_01TEST",
+  organizationId: "org_01TEST",
+  scopes: new Set(["images:edit"]),
+};
+
+function env(success = true): Env {
+  return {
+    WORKOS_ISSUER: "https://example.authkit.app",
+    WORKOS_AUDIENCE: "client_test",
+    WORKOS_JWKS_URL: "https://example.authkit.app/oauth2/jwks",
+    MODAL_UPSTREAM_URL: "https://private.example.modal.run",
+    MODAL_PROXY_KEY: "gateway-key",
+    MODAL_PROXY_SECRET: "gateway-secret",
+    MAX_REQUEST_BYTES: "1024",
+    RATE_LIMITER: { limit: vi.fn().mockResolvedValue({ success }) },
+  };
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("OAuth gateway", () => {
+  it("verifies a signed WorkOS-shaped token against remote JWKS", async () => {
+    const { privateKey, publicKey } = await generateKeyPair("RS256");
+    const jwk = await exportJWK(publicKey);
+    const token = await new SignJWT({ org_id: "org_01TEST", scope: "images:edit" })
+      .setProtectedHeader({ alg: "RS256", kid: "test-key" })
+      .setIssuer("https://issuer.authkit.app")
+      .setAudience("client_test")
+      .setSubject("user_01TEST")
+      .setIssuedAt()
+      .setExpirationTime("5m")
+      .sign(privateKey);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({ keys: [{ ...jwk, kid: "test-key", alg: "RS256", use: "sig" }] }),
+      ),
+    );
+    const configured = env();
+    configured.WORKOS_ISSUER = "https://issuer.authkit.app";
+    configured.WORKOS_JWKS_URL = "https://issuer.authkit.app/oauth2/jwks-test";
+
+    await expect(verifyWorkOsToken(token, configured)).resolves.toMatchObject({
+      subject: "user_01TEST",
+      organizationId: "org_01TEST",
+      scopes: new Set(["images:edit"]),
+    });
+    configured.WORKOS_AUDIENCE = "wrong-audience";
+    await expect(verifyWorkOsToken(token, configured)).rejects.toThrow();
+  });
+
+  it("rejects invalid bearer before rate limit or upstream", async () => {
+    const verify = vi.fn().mockRejectedValue(new Error("invalid"));
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    const response = await createGateway(verify)(
+      new Request("https://api-staging.image.mk10.org/v1/run", {
+        headers: { Authorization: "Bearer legacy-key" },
+      }),
+      env(),
+    );
+    expect(response.status).toBe(401);
+    expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("enforces route scope before upstream", async () => {
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    const response = await createGateway(vi.fn().mockResolvedValue({ ...principal, scopes: new Set() }))(
+      new Request("https://api-staging.image.mk10.org/v1/run", {
+        method: "POST",
+        headers: { Authorization: "Bearer signed.jwt" },
+      }),
+      env(),
+    );
+    expect(response.status).toBe(403);
+    expect(response.headers.get("WWW-Authenticate")).toBe(
+      'Bearer error="insufficient_scope", scope="images:edit"',
+    );
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("rejects declared oversize and rate limits without upstream", async () => {
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    const gateway = createGateway(vi.fn().mockResolvedValue(principal));
+    const oversized = await gateway(
+      new Request("https://api-staging.image.mk10.org/v1/run", {
+        method: "POST",
+        headers: { Authorization: "Bearer signed.jwt", "Content-Length": "1025" },
+      }),
+      env(),
+    );
+    const limited = await gateway(
+      new Request("https://api-staging.image.mk10.org/v1/run", {
+        method: "POST",
+        headers: { Authorization: "Bearer signed.jwt" },
+      }),
+      env(false),
+    );
+    expect(oversized.status).toBe(413);
+    expect(limited.status).toBe(429);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("preserves bearer and payload while replacing private headers", async () => {
+    const upstream = vi.fn().mockImplementation(async (request: Request) => {
+      expect(request.url).toBe("https://private.example.modal.run/v1/run?mode=test");
+      expect(request.headers.get("Authorization")).toBe("Bearer signed.jwt");
+      expect(request.headers.get("Modal-Key")).toBe("gateway-key");
+      expect(request.headers.get("Modal-Secret")).toBe("gateway-secret");
+      expect(request.headers.get("X-Principal-ID")).toBeNull();
+      expect(request.headers.get("X-Tenant-ID")).toBeNull();
+      expect(request.headers.get("X-Forwarded-For")).toBeNull();
+      expect(request.headers.get("X-Request-ID")).not.toBe("attacker-id");
+      expect(await request.text()).toBe('{"ok":true}');
+      return new Response("upstream", {
+        status: 201,
+        headers: { "X-Modal-Internal": "private", Server: "modal", "X-Safe": "yes" },
+      });
+    });
+    vi.stubGlobal("fetch", upstream);
+    const response = await createGateway(vi.fn().mockResolvedValue(principal))(
+      new Request("https://api-staging.image.mk10.org/v1/run?mode=test", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer signed.jwt",
+          "Content-Type": "application/json",
+          "Modal-Key": "attacker-key",
+          "Modal-Secret": "attacker-secret",
+          "X-Principal-ID": "attacker-principal",
+          "X-Tenant-ID": "attacker-tenant",
+          "X-Forwarded-For": "127.0.0.1",
+          "X-Request-ID": "attacker-id",
+        },
+        body: '{"ok":true}',
+      }),
+      env(),
+    );
+    expect(response.status).toBe(201);
+    expect(response.headers.get("X-Modal-Internal")).toBeNull();
+    expect(response.headers.get("Server")).toBeNull();
+    expect(response.headers.get("X-Safe")).toBe("yes");
+    expect(response.headers.get("X-Request-ID")).not.toBe("attacker-id");
+  });
+
+  it("fails closed on partial configuration", async () => {
+    const broken = env();
+    broken.MODAL_PROXY_SECRET = "";
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    const response = await createGateway(vi.fn().mockResolvedValue(principal))(
+      new Request("https://api-staging.image.mk10.org/v1/run", {
+        headers: { Authorization: "Bearer signed.jwt" },
+      }),
+      broken,
+    );
+    expect(response.status).toBe(503);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+});
