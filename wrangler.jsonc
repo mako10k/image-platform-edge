@@ -8,9 +8,6 @@
     "enabled": true,
     "head_sampling_rate": 0
   },
-  "limits": {
-    "cpu_ms": 50
-  },
   "routes": [
     {
       "pattern": "api-staging.image.mk10.org",
