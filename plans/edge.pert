@@ -46,7 +46,7 @@ task T_DURABLE_RESOURCE_SCOPE_PARITY EDGE_LOCAL_READY -> EDGE_SCOPE_PARITY_READY
     optimistic 1p
     most_likely 2p
     pessimistic 3p
-  status active
+  status done
   priority 110
   requires:
     CODEX 1
@@ -71,6 +71,13 @@ task_outcome OUTCOME_GATEWAY_IMPLEMENTATION:
   against_basis sha256:441d34d2b44d07c016bce516341536b2075d20d6562e0a84f504bd9bb7aae07c
   status conformant
   reason "Strict TypeScript checks and six tests passed in 2.91 seconds, Wrangler dry-run produced a 44.18 KiB bundle with only the declared rate and size bindings, npm audit reported zero vulnerabilities, and no deployment, secret, DNS, WorkOS, Modal, or publication effect occurred"
+
+task_outcome OUTCOME_DURABLE_RESOURCE_SCOPE_PARITY:
+  model 1
+  task T_DURABLE_RESOURCE_SCOPE_PARITY
+  against_basis sha256:18ca48e5e324deab5ff42c400797a85e50efe29863ae8c51cdde055340b767d3
+  status conformant
+  reason "Commit a96bde7942fa1e58757d7d45442f11995991ef1b aligned the Edge with the origin scope matrix; npm run check passed 37 tests in 6.16 seconds, Wrangler dry-run completed in 2.76 seconds with only declared bindings, npm audit completed in 0.57 seconds with zero vulnerabilities, and no deployment, live request, secret mutation, or Git publication occurred"
 
 work_event START_GATEWAY_IMPLEMENTATION_20260820:
   model 1
@@ -97,3 +104,9 @@ work_event START_DURABLE_RESOURCE_SCOPE_PARITY_20260821:
   kind start
   occurred_at 2026-08-21T18:09:33+09:00
   planned_value 2p
+
+work_event FINISH_DURABLE_RESOURCE_SCOPE_PARITY_20260821:
+  model 1
+  task T_DURABLE_RESOURCE_SCOPE_PARITY
+  kind finish
+  occurred_at 2026-08-21T18:11:51+09:00
