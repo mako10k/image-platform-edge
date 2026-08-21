@@ -81,7 +81,11 @@ export const verifyWorkOsToken: VerifyToken = async (token, env) => {
 
 function requiredScope(url: URL, method: string): string | undefined {
   const path = url.pathname;
-  if (path === "/v1/images/generations" || path === "/v1/generations") {
+  if (
+    path === "/v1/images/generations" ||
+    path === "/v1/generations" ||
+    path.startsWith("/v2beta/stable-image/generate/")
+  ) {
     return "images:generate";
   }
   if (
@@ -93,22 +97,32 @@ function requiredScope(url: URL, method: string): string | undefined {
       "/v1/image-operation-batches",
       "/v1/compositions",
       "/v1/run",
-    ].includes(path)
+    ].includes(path) ||
+    path.startsWith("/v2beta/stable-image/edit/") ||
+    path.startsWith("/v2beta/stable-image/upscale/")
   ) {
     return "images:edit";
   }
   if (["/v1/responses", "/v1/embeddings", "/v1/segmentations"].includes(path)) {
     return "images:understand";
   }
-  if (path === "/v1/chat/completions") return "batches:plan";
-  if (path.startsWith("/v1/predictions") || path.startsWith("/v1/uploads")) {
+  if (path === "/v1/chat/completions" || path === "/v1/prompt-plans") return "batches:plan";
+  if (
+    path.startsWith("/v1/predictions") ||
+    (path.startsWith("/v1/models/") && path.endsWith("/predictions"))
+  ) {
     return path.endsWith("/cancel") ? "jobs:cancel" : "batches:execute";
   }
-  if (path === "/v1/jobs") return "batches:execute";
+  if (path === "/v1/jobs") {
+    return method === "GET" ? "campaigns:read" : "batches:execute";
+  }
+  if (path.startsWith("/v1/uploads")) return "batches:execute";
   if (path.startsWith("/v1/jobs/")) {
     return method === "POST" && path.endsWith("/cancel") ? "jobs:cancel" : "campaigns:read";
   }
-  if (path.startsWith("/v1/artifacts/") || path === "/v1/search") return "artifacts:read";
+  if (path === "/v1/artifacts" || path.startsWith("/v1/artifacts/") || path === "/v1/search") {
+    return "artifacts:read";
+  }
   return undefined;
 }
 

@@ -87,6 +87,71 @@ describe("OAuth gateway", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["POST", "/v1/images/generations", "images:generate"],
+    ["POST", "/v1/generations", "images:generate"],
+    ["POST", "/v2beta/stable-image/generate/core", "images:generate"],
+    ["POST", "/v1/images/edits", "images:edit"],
+    ["POST", "/v1/image-to-image", "images:edit"],
+    ["POST", "/v1/enhancements", "images:edit"],
+    ["POST", "/v1/image-operations", "images:edit"],
+    ["POST", "/v1/image-operation-batches", "images:edit"],
+    ["POST", "/v1/compositions", "images:edit"],
+    ["POST", "/v1/run", "images:edit"],
+    ["POST", "/v2beta/stable-image/edit/inpaint", "images:edit"],
+    ["POST", "/v2beta/stable-image/upscale/fast", "images:edit"],
+    ["POST", "/v1/responses", "images:understand"],
+    ["POST", "/v1/embeddings", "images:understand"],
+    ["POST", "/v1/segmentations", "images:understand"],
+    ["POST", "/v1/chat/completions", "batches:plan"],
+    ["POST", "/v1/prompt-plans", "batches:plan"],
+    ["POST", "/v1/predictions", "batches:execute"],
+    ["GET", "/v1/predictions/prediction-1", "batches:execute"],
+    ["POST", "/v1/models/owner/name/predictions", "batches:execute"],
+    ["POST", "/v1/uploads", "batches:execute"],
+    ["POST", "/v1/uploads/artifact-1/complete", "batches:execute"],
+    ["POST", "/v1/jobs", "batches:execute"],
+    ["POST", "/v1/predictions/prediction-1/cancel", "jobs:cancel"],
+    ["POST", "/v1/jobs/job-1/cancel", "jobs:cancel"],
+    ["GET", "/v1/jobs", "campaigns:read"],
+    ["GET", "/v1/jobs/job-1", "campaigns:read"],
+    ["GET", "/v1/jobs/job-1/previews", "campaigns:read"],
+    ["GET", "/v1/artifacts", "artifacts:read"],
+    ["GET", "/v1/artifacts/artifact-1", "artifacts:read"],
+    ["POST", "/v1/search", "artifacts:read"],
+  ] as const)("enforces %s %s with %s", async (method, path, scope) => {
+    const upstream = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", upstream);
+    const gateway = createGateway(
+      vi.fn().mockResolvedValue({ ...principal, scopes: new Set([scope]) }),
+    );
+    const allowed = await gateway(
+      new Request(`https://api-staging.image.mk10.org${path}`, {
+        method,
+        headers: { Authorization: "Bearer signed.jwt" },
+      }),
+      env(),
+    );
+    expect(allowed.status).toBe(204);
+    expect(upstream).toHaveBeenCalledOnce();
+
+    upstream.mockClear();
+    const denied = await createGateway(
+      vi.fn().mockResolvedValue({ ...principal, scopes: new Set(["unrelated:scope"]) }),
+    )(
+      new Request(`https://api-staging.image.mk10.org${path}`, {
+        method,
+        headers: { Authorization: "Bearer signed.jwt" },
+      }),
+      env(),
+    );
+    expect(denied.status).toBe(403);
+    expect(denied.headers.get("WWW-Authenticate")).toBe(
+      `Bearer error="insufficient_scope", scope="${scope}"`,
+    );
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   it("rejects declared oversize and rate limits without upstream", async () => {
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
