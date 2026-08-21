@@ -2,10 +2,10 @@
 project IMAGE_PLATFORM_EDGE:
   version 6
   title "Image Platform OAuth Edge"
-  as_of 2026-08-20
+  as_of 2026-08-21
   duration_unit point
   velocity 1p/1d
-  finish EDGE_LOCAL_READY
+  finish EDGE_SCOPE_PARITY_READY
   goal_owner user
   goal_delegates [codex]
   dag_owner user
@@ -39,10 +39,31 @@ task T_GATEWAY_IMPLEMENTATION EDGE_CONTRACT_ACCEPTED -> EDGE_LOCAL_READY:
     CODEX 1
   owner "codex"
 
+task T_DURABLE_RESOURCE_SCOPE_PARITY EDGE_LOCAL_READY -> EDGE_SCOPE_PARITY_READY:
+  title "Restore durable resource route-scope parity"
+  description "Resolve image-platform Issue #1 by making Job collection authorization method-aware, protecting the exact Artifact collection path, adding complete route-scope matrix regressions, and running local Edge gates. Deployment, live smoke, Git publication, and acceptance recording remain separate effects."
+  estimate:
+    optimistic 1p
+    most_likely 2p
+    pessimistic 3p
+  status planned
+  priority 110
+  requires:
+    CODEX 1
+  owner "codex"
+  source "https://github.com/mako10k/image-platform/issues/1"
+
 plan_seal T_GATEWAY_IMPLEMENTATION:
   accepted_contract sha256:a93304e54ad59324d754cb71f068b18a9991afab81b1ccd2906a8b8f128f45fb
   accepted_basis sha256:441d34d2b44d07c016bce516341536b2075d20d6562e0a84f504bd9bb7aae07c
   reason "User approved a separate local gateway repository with deployment and publication retained as external gates"
+
+plan_seal T_DURABLE_RESOURCE_SCOPE_PARITY:
+  accepted_contract sha256:bd1b5672a97bb4daf8e94380805c30aaf336d1f45fee42890d03054b1df45d05
+  accepted_basis sha256:18ca48e5e324deab5ff42c400797a85e50efe29863ae8c51cdde055340b767d3
+  accepted_inputs:
+    T_GATEWAY_IMPLEMENTATION both sha256:441d34d2b44d07c016bce516341536b2075d20d6562e0a84f504bd9bb7aae07c
+  reason "Owner directed Issue #1 remediation to be planned in perttool and executed with measured lifecycle events"
 
 task_outcome OUTCOME_GATEWAY_IMPLEMENTATION:
   model 1
@@ -65,3 +86,7 @@ work_event FINISH_GATEWAY_IMPLEMENTATION_20260820:
   occurred_at 2026-08-20T16:45:40+09:00
   active_time 0.23h
   effort 0.23ph
+
+milestone EDGE_SCOPE_PARITY_READY:
+  title "Durable resource scope parity locally verified"
+  description "Cloudflare Edge and origin agree on method-aware Job and Artifact collection scopes, with route-matrix tests and no deployment or publication."
