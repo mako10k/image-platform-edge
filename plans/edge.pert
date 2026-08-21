@@ -1,6 +1,6 @@
 # Existing .pert plans should normally be maintained through perttool commands; direct DSL editing bypasses goal/DAG owner-confirmation checks.
 project IMAGE_PLATFORM_EDGE:
-  version 6
+  version 7
   title "Image Platform OAuth Edge"
   as_of 2026-08-21
   duration_unit point
@@ -13,6 +13,18 @@ project IMAGE_PLATFORM_EDGE:
   plan_assurance_model 1
   plan_assurance_hash_model 1
 
+
+milestone_acceptance_migration GRAMMAR_7_BASELINE:
+  model 1
+  repository git:sha1:b80d2747f884fdfb291d8b09242eaeea46407770:index:8b89524d2a934b1e7c59c00c539667d2aeb5bdd8
+  path "plans/edge.pert"
+  object_format sha1
+  head b80d2747f884fdfb291d8b09242eaeea46407770
+  blob 8b89524d2a934b1e7c59c00c539667d2aeb5bdd8
+  source_digest sha256:ae080b7031d1b58b1aef605b23e6c15affcb8d2a520cb3c825e43e940fd04f6c
+  candidate_digest sha256:dd75e2343d2b8d19a3ee570640f49b882ddafd2ce2f78964be39caa4997aed09
+  grandfathered EDGE_CONTRACT_ACCEPTED
+  grandfathered EDGE_LOCAL_READY
 resource CODEX:
   title "Codex implementation capacity"
   capacity 1
