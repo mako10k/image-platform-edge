@@ -128,3 +128,16 @@ milestone_criterion_set EDGE_SCOPE_PARITY_READY_R1:
   revision R1
   commitment sha256:75703672c202887d4a04924c23d4bef56527546bb455e24d155db910e0a59ed9
   criterion SCOPE_PARITY_ACCEPTED required owner "Edge_scope_matrix_tests_and_local_gateway_correction_are_accepted"
+
+milestone_acceptance_receipt R_EDGE_SCOPE_PARITY_ACCEPTED_20260821:
+  model 1
+  set EDGE_SCOPE_PARITY_READY_R1
+  set_commitment sha256:75703672c202887d4a04924c23d4bef56527546bb455e24d155db910e0a59ed9
+  criterion SCOPE_PARITY_ACCEPTED
+  criterion_commitment sha256:6983be1439beaa1fff76fb87f919cdf431dc9865baca37f64a05575c43ff7ded
+  action verify
+  evidence_kind owner
+  evidence_reference "Owner accepted Cloudflare Worker Version c68ffbf3-2e72-4d2e-88dd-ffdf0fd876f3 after authenticated staging smoke returned 200 for health, Job list, and Artifact list with safe projections and returned Edge 403 for POST /v1/jobs without batches:execute"
+  evidence_revision a96bde7942fa1e58757d7d45442f11995991ef1b
+  verifier user
+  occurred_at 2026-08-21T09:34:34Z
