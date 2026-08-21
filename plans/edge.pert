@@ -122,3 +122,9 @@ work_event FINISH_DURABLE_RESOURCE_SCOPE_PARITY_20260821:
   task T_DURABLE_RESOURCE_SCOPE_PARITY
   kind finish
   occurred_at 2026-08-21T18:11:51+09:00
+
+milestone_criterion_set EDGE_SCOPE_PARITY_READY_R1:
+  milestone EDGE_SCOPE_PARITY_READY
+  revision R1
+  commitment sha256:75703672c202887d4a04924c23d4bef56527546bb455e24d155db910e0a59ed9
+  criterion SCOPE_PARITY_ACCEPTED required owner "Edge_scope_matrix_tests_and_local_gateway_correction_are_accepted"
