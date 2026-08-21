@@ -29,99 +29,20 @@ resource CODEX:
   title "Codex implementation capacity"
   capacity 1
 
-milestone EDGE_CONTRACT_ACCEPTED:
-  title "Image-platform OAuth edge contract accepted"
-  state reached
 
-milestone EDGE_LOCAL_READY:
-  title "Cloudflare OAuth gateway locally verified"
-  description "The separate repository contains a tested provider-specific implementation of the accepted provider-neutral contract without deployment or publication."
-  state reached
 
-task T_GATEWAY_IMPLEMENTATION EDGE_CONTRACT_ACCEPTED -> EDGE_LOCAL_READY:
-  title "Implement provider-neutral Cloudflare OAuth gateway"
-  description "Validate WorkOS JWTs, enforce bounded request policy, remove spoofable headers, forward bearer tokens unchanged, and inject private Modal proxy credentials without deployment or publication."
-  estimate:
-    optimistic 3p
-    most_likely 5p
-    pessimistic 8p
-  status done
-  priority 100
-  requires:
-    CODEX 1
-  owner "codex"
 
-task T_DURABLE_RESOURCE_SCOPE_PARITY EDGE_LOCAL_READY -> EDGE_SCOPE_PARITY_READY:
-  title "Restore durable resource route-scope parity"
-  description "Resolve image-platform Issue #1 by making Job collection authorization method-aware, protecting the exact Artifact collection path, adding complete route-scope matrix regressions, and running local Edge gates. Deployment, live smoke, Git publication, and acceptance recording remain separate effects."
-  estimate:
-    optimistic 1p
-    most_likely 2p
-    pessimistic 3p
-  status done
-  priority 110
-  requires:
-    CODEX 1
-  owner "codex"
-  source "https://github.com/mako10k/image-platform/issues/1"
 
-plan_seal T_GATEWAY_IMPLEMENTATION:
-  accepted_contract sha256:a93304e54ad59324d754cb71f068b18a9991afab81b1ccd2906a8b8f128f45fb
-  accepted_basis sha256:441d34d2b44d07c016bce516341536b2075d20d6562e0a84f504bd9bb7aae07c
-  reason "User approved a separate local gateway repository with deployment and publication retained as external gates"
 
-plan_seal T_DURABLE_RESOURCE_SCOPE_PARITY:
-  accepted_contract sha256:bd1b5672a97bb4daf8e94380805c30aaf336d1f45fee42890d03054b1df45d05
-  accepted_basis sha256:18ca48e5e324deab5ff42c400797a85e50efe29863ae8c51cdde055340b767d3
-  accepted_inputs:
-    T_GATEWAY_IMPLEMENTATION both sha256:441d34d2b44d07c016bce516341536b2075d20d6562e0a84f504bd9bb7aae07c
-  reason "Owner directed Issue #1 remediation to be planned in perttool and executed with measured lifecycle events"
 
-task_outcome OUTCOME_GATEWAY_IMPLEMENTATION:
-  model 1
-  task T_GATEWAY_IMPLEMENTATION
-  against_basis sha256:441d34d2b44d07c016bce516341536b2075d20d6562e0a84f504bd9bb7aae07c
-  status conformant
-  reason "Strict TypeScript checks and six tests passed in 2.91 seconds, Wrangler dry-run produced a 44.18 KiB bundle with only the declared rate and size bindings, npm audit reported zero vulnerabilities, and no deployment, secret, DNS, WorkOS, Modal, or publication effect occurred"
 
-task_outcome OUTCOME_DURABLE_RESOURCE_SCOPE_PARITY:
-  model 1
-  task T_DURABLE_RESOURCE_SCOPE_PARITY
-  against_basis sha256:18ca48e5e324deab5ff42c400797a85e50efe29863ae8c51cdde055340b767d3
-  status conformant
-  reason "Commit a96bde7942fa1e58757d7d45442f11995991ef1b aligned the Edge with the origin scope matrix; npm run check passed 37 tests in 6.16 seconds, Wrangler dry-run completed in 2.76 seconds with only declared bindings, npm audit completed in 0.57 seconds with zero vulnerabilities, and no deployment, live request, secret mutation, or Git publication occurred"
 
-work_event START_GATEWAY_IMPLEMENTATION_20260820:
-  model 1
-  task T_GATEWAY_IMPLEMENTATION
-  kind start
-  occurred_at 2026-08-20T16:31:52+09:00
-  planned_value 31/6p
 
-work_event FINISH_GATEWAY_IMPLEMENTATION_20260820:
-  model 1
-  task T_GATEWAY_IMPLEMENTATION
-  kind finish
-  occurred_at 2026-08-20T16:45:40+09:00
-  active_time 0.23h
-  effort 0.23ph
 
 milestone EDGE_SCOPE_PARITY_READY:
   title "Durable resource scope parity locally verified"
   description "Cloudflare Edge and origin agree on method-aware Job and Artifact collection scopes, with route-matrix tests and no deployment or publication."
-
-work_event START_DURABLE_RESOURCE_SCOPE_PARITY_20260821:
-  model 1
-  task T_DURABLE_RESOURCE_SCOPE_PARITY
-  kind start
-  occurred_at 2026-08-21T18:09:33+09:00
-  planned_value 2p
-
-work_event FINISH_DURABLE_RESOURCE_SCOPE_PARITY_20260821:
-  model 1
-  task T_DURABLE_RESOURCE_SCOPE_PARITY
-  kind finish
-  occurred_at 2026-08-21T18:11:51+09:00
+  state reached
 
 milestone_criterion_set EDGE_SCOPE_PARITY_READY_R1:
   milestone EDGE_SCOPE_PARITY_READY
