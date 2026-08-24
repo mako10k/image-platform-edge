@@ -74,7 +74,7 @@ task T_NON_GPU_CI EDGE_SCOPE_PARITY_READY -> NON_GPU_CI_READY:
     optimistic 1p
     most_likely 2p
     pessimistic 3p
-  status suspended
+  status active
   priority 100
   requires:
     CODEX 1
@@ -100,3 +100,9 @@ work_event EV_NON_GPU_CI_SUSPEND_LOCAL_CANDIDATE_20260824T192330:
   kind suspend
   occurred_at 2026-08-24T19:23:30+09:00
   reason "Local candidate verified; remote publication and exact-revision workflow execution remain separately gated."
+
+work_event EV_NON_GPU_CI_RESUME_REMOTE_CONNECTED_20260824T194940:
+  model 1
+  task T_NON_GPU_CI
+  kind resume
+  occurred_at 2026-08-24T19:49:40+09:00
