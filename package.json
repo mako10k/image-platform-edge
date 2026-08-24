@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "wrangler deploy --dry-run --outdir dist",
     "check": "npm run typecheck && npm test",
+    "ci": "npm run check && npm run build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

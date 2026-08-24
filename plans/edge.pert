@@ -5,7 +5,7 @@ project IMAGE_PLATFORM_EDGE:
   as_of 2026-08-21
   duration_unit point
   velocity 1p/1d
-  finish EDGE_SCOPE_PARITY_READY
+  finish NON_GPU_CI_READY
   goal_owner user
   goal_delegates [codex]
   dag_owner user
@@ -62,3 +62,41 @@ milestone_acceptance_receipt R_EDGE_SCOPE_PARITY_ACCEPTED_20260821:
   evidence_revision a96bde7942fa1e58757d7d45442f11995991ef1b
   verifier user
   occurred_at 2026-08-21T09:34:34Z
+
+milestone NON_GPU_CI_READY:
+  title "Locked non-GPU CI is configured"
+  description "A locked local and GitHub Actions gate checks types, unit behavior, and a Cloudflare dry-run build without deployment or publication."
+
+task T_NON_GPU_CI EDGE_SCOPE_PARITY_READY -> NON_GPU_CI_READY:
+  title "Add locked non-GPU CI"
+  description "Add an npm-lock-backed GitHub Actions workflow for type checks, deterministic unit tests, and a Wrangler dry-run build. Keep deployment, secrets, live requests, and publication out of scope; remote execution evidence remains required before completion."
+  estimate:
+    optimistic 1p
+    most_likely 2p
+    pessimistic 3p
+  status suspended
+  priority 100
+  requires:
+    CODEX 1
+  owner "codex"
+  tags [implementation, ci, reproducibility]
+  source "plans/image-platform-portfolio.pert#T_NON_GPU_CI"
+
+plan_seal T_NON_GPU_CI:
+  accepted_contract sha256:ea495f7484f0eb23dca75a9aa2e65f172a6d54ae892278e4737663ddabff6bcb
+  accepted_basis sha256:10f3b8dc7e3a18d11618d30cfcecc226e7254ccf99e09e438574cea006d88c59
+  reason "Owner-approved non-GPU CI increment with deployment and publication excluded"
+
+work_event EV_NON_GPU_CI_START_20260824190009:
+  model 1
+  task T_NON_GPU_CI
+  kind start
+  occurred_at 2026-08-24T19:00:09+09:00
+  planned_value 2p
+
+work_event EV_NON_GPU_CI_SUSPEND_LOCAL_CANDIDATE_20260824T192330:
+  model 1
+  task T_NON_GPU_CI
+  kind suspend
+  occurred_at 2026-08-24T19:23:30+09:00
+  reason "Local candidate verified; remote publication and exact-revision workflow execution remain separately gated."
