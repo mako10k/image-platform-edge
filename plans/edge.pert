@@ -74,7 +74,7 @@ task T_NON_GPU_CI EDGE_SCOPE_PARITY_READY -> NON_GPU_CI_READY:
     optimistic 1p
     most_likely 2p
     pessimistic 3p
-  status suspended
+  status done
   priority 100
   requires:
     CODEX 1
@@ -86,6 +86,13 @@ plan_seal T_NON_GPU_CI:
   accepted_contract sha256:ea495f7484f0eb23dca75a9aa2e65f172a6d54ae892278e4737663ddabff6bcb
   accepted_basis sha256:10f3b8dc7e3a18d11618d30cfcecc226e7254ccf99e09e438574cea006d88c59
   reason "Owner-approved non-GPU CI increment with deployment and publication excluded"
+
+task_outcome OUTCOME_NON_GPU_CI:
+  model 1
+  task T_NON_GPU_CI
+  against_basis sha256:10f3b8dc7e3a18d11618d30cfcecc226e7254ccf99e09e438574cea006d88c59
+  status conformant
+  reason "Locked Node 24 typecheck, 37 unit tests, and Wrangler dry-run pass; connected default branch eda862614aa8dfa6474871f59c491b6fee5a8e33 has successful GitHub Actions run 32719063444; owner accepted the no-deploy completion evidence."
 
 work_event EV_NON_GPU_CI_START_20260824190009:
   model 1
@@ -113,3 +120,36 @@ work_event EV_NON_GPU_CI_SUSPEND_REMOTE_CI_20260824T195244:
   kind suspend
   occurred_at 2026-08-24T19:52:44+09:00
   reason "Remote revision 7caeff9a4d6f2c061db600c330538dd3d6a672a3 verified by GitHub Actions run 32718922673; milestone acceptance criterion remains owner-confirmation pending."
+
+milestone_criterion_set NON_GPU_CI_READY_R1:
+  milestone NON_GPU_CI_READY
+  revision R1
+  commitment sha256:b582d2c9e86f81975bff40a69c28f6560a43202d10f8e28ff622fb30ac36c4a6
+  criterion REMOTE_CI_EXACT_REVISION_ACCEPTED required owner "Connected default branch and exact-revision GitHub Actions success are accepted after independent readback with no deploy live request or secret mutation"
+
+milestone_acceptance_receipt R_NON_GPU_CI_REMOTE_ACCEPTED_20260825T061744Z:
+  model 1
+  set NON_GPU_CI_READY_R1
+  set_commitment sha256:b582d2c9e86f81975bff40a69c28f6560a43202d10f8e28ff622fb30ac36c4a6
+  criterion REMOTE_CI_EXACT_REVISION_ACCEPTED
+  criterion_commitment sha256:3fa28e6a99adef4538c456143f360e0d2b51e9b5ba8bf841a00c9ae8f9c71ea4
+  action verify
+  evidence_kind owner
+  evidence_reference "Owner confirmed the completion criterion is satisfied after readback of connected default branch eda862614aa8dfa6474871f59c491b6fee5a8e33 and successful GitHub Actions run 32719063444; no deploy live request or secret mutation was performed."
+  evidence_revision eda862614aa8dfa6474871f59c491b6fee5a8e33
+  verifier user
+  occurred_at 2026-08-25T06:17:44Z
+
+work_event EV_NON_GPU_CI_RESUME_OWNER_ACCEPTED_20260825T151846:
+  model 1
+  task T_NON_GPU_CI
+  kind resume
+  occurred_at 2026-08-25T15:18:46+09:00
+
+work_event EV_NON_GPU_CI_FINISH_OWNER_ACCEPTED_20260825T151922:
+  model 1
+  task T_NON_GPU_CI
+  kind finish
+  occurred_at 2026-08-25T15:19:22+09:00
+  active_time 1621/3600h
+  effort 1621/3600ph

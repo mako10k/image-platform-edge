@@ -14,6 +14,10 @@ DAG next with `--capacity CODEX=1`. Use preview and digest-checked writes for mu
 exact lifecycle events. Deployment, Cloudflare/WorkOS/DNS mutation, secret writes, Git publication,
 and live requests remain separately authorized effects.
 
+The current finish `NON_GPU_CI_READY` is complete. Its accepted evidence binds the connected
+default branch to an exact successful GitHub Actions run and a local Node 24 Wrangler dry-run;
+this completion does not authorize deployment, live requests, secret mutation, or publication.
+
 ## Development
 
 Use TypeScript in strict mode, npm for the lockfile, and the Cloudflare Workers runtime. Keep the
