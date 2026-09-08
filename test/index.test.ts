@@ -1,7 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { createGateway, type Env, verifyWorkOsToken } from "../src/index.js";
+
+const V4_SUCCESS_FIXTURE_SOURCE =
+  "image/docs/contracts/fixtures/native-v4-evaluation-rubrics-success.json";
+const V4_SUCCESS_FIXTURE_SHA256 =
+  "076d5a9fe992dc346200ed175fa8a0c1ea526b0f45782934a8da7c7252e10a50";
+const v4SuccessFixture = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    "fixtures/native-v4-evaluation-rubrics-success.json",
+  ),
+  "utf8",
+);
+const v4SuccessBody = v4SuccessFixture.trimEnd();
 
 const principal = {
   subject: "user_01TEST",
@@ -309,6 +326,51 @@ describe("OAuth gateway", () => {
     expect(response.headers.get("Server")).toBeNull();
     expect(response.headers.get("X-Safe")).toBe("yes");
     expect(response.headers.get("X-Request-ID")).not.toBe("attacker-id");
+  });
+
+  it("passes the producer-bound V4 response identity and bytes through unchanged", async () => {
+    expect(createHash("sha256").update(v4SuccessFixture).digest("hex")).toBe(
+      V4_SUCCESS_FIXTURE_SHA256,
+    );
+    expect(V4_SUCCESS_FIXTURE_SOURCE).toContain("native-v4-evaluation-rubrics-success.json");
+
+    const upstream = vi.fn().mockImplementation(async (request: Request) => {
+      expect(request.headers.get("X-Request-ID")).toBeNull();
+      return new Response(v4SuccessBody, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Modal-Internal": "private",
+          "X-Request-ID": "req_0123456789abcdef0123456789abcdef",
+          "X-Safe": "yes",
+        },
+      });
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await createGateway(
+      vi.fn().mockResolvedValue({
+        ...principal,
+        scopes: new Set(["campaigns:read"]),
+      }),
+    )(
+      new Request("https://api-staging.image.mk10.org/v4/evaluation-rubrics", {
+        headers: {
+          Authorization: "Bearer signed.jwt",
+          "X-Request-ID": "attacker-id",
+        },
+      }),
+      env(),
+    );
+
+    const responseBody = await response.text();
+    expect(responseBody).toBe(v4SuccessBody);
+    expect(response.headers.get("X-Request-ID")).toBe(
+      "req_0123456789abcdef0123456789abcdef",
+    );
+    expect(JSON.parse(responseBody).meta.request_id).toBe(response.headers.get("X-Request-ID"));
+    expect(response.headers.get("X-Modal-Internal")).toBeNull();
+    expect(response.headers.get("X-Safe")).toBe("yes");
   });
 
   it("fails closed on partial configuration", async () => {

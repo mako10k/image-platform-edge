@@ -286,6 +286,8 @@ export function createGateway(verifyToken: VerifyToken = verifyWorkOsToken) {
     }
 
     const publicUrl = new URL(request.url);
+    const applicationOwnsRequestId =
+      publicUrl.pathname === "/v4" || publicUrl.pathname.startsWith("/v4/");
     const upstreamUrl = new URL(env.MODAL_UPSTREAM_URL);
     upstreamUrl.pathname = publicUrl.pathname;
     upstreamUrl.search = publicUrl.search;
@@ -294,7 +296,7 @@ export function createGateway(verifyToken: VerifyToken = verifyWorkOsToken) {
     headers.set("Authorization", bearer.authorization);
     headers.set("Modal-Key", env.MODAL_PROXY_KEY);
     headers.set("Modal-Secret", env.MODAL_PROXY_SECRET);
-    headers.set("X-Request-ID", requestId);
+    if (!applicationOwnsRequestId) headers.set("X-Request-ID", requestId);
 
     const upstream = await fetch(
       new Request(upstreamUrl, {
@@ -317,7 +319,7 @@ export function createGateway(verifyToken: VerifyToken = verifyWorkOsToken) {
         responseHeaders.delete(name);
       }
     }
-    responseHeaders.set("X-Request-ID", requestId);
+    if (!applicationOwnsRequestId) responseHeaders.set("X-Request-ID", requestId);
     return new Response(upstream.body, {
       status: upstream.status,
       statusText: upstream.statusText,
