@@ -45,6 +45,71 @@ const PRIVATE_RESPONSE_HEADERS = [
 
 const jwksByUrl = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
+type ScopeTuple = readonly string[];
+
+const V4_STATIC_SCOPES: ReadonlyMap<string, ScopeTuple> = new Map([
+  ["GET /v4/capabilities", []],
+  ["GET /v4/model-profiles", []],
+  ["POST /v4/prompt-plans", ["batches:plan"]],
+  ["POST /v4/generations", ["images:generate"]],
+  ["POST /v4/captions", ["images:understand"]],
+  ["POST /v4/image-edits", ["images:edit"]],
+  ["POST /v4/inpaints", ["images:edit"]],
+  ["POST /v4/segmentations", ["images:understand"]],
+  ["POST /v4/enhancements", ["images:edit"]],
+  ["POST /v4/image-operations", ["images:edit"]],
+  ["POST /v4/image-operation-batches", ["images:edit"]],
+  ["POST /v4/image-operation-plans", ["images:edit"]],
+  ["POST /v4/portrait-mattings", ["images:edit"]],
+  ["POST /v4/batch-plans", ["batches:plan"]],
+  ["GET /v4/evaluation-rubrics", ["campaigns:read"]],
+  ["POST /v4/campaigns", ["batches:execute", "campaigns:write"]],
+  ["GET /v4/campaigns", ["batches:execute", "campaigns:read", "jobs:cancel"]],
+  ["POST /v4/jobs", ["jobs:submit"]],
+  ["GET /v4/jobs", ["jobs:read"]],
+  ["POST /v4/artifacts/uploads", ["artifacts:write"]],
+  ["GET /v4/artifacts", ["artifacts:read"]],
+  ["POST /v4/artifacts/search", ["artifacts:read"]],
+]);
+
+const V4_PARAMETER_SCOPES: readonly {
+  method: string;
+  path: RegExp;
+  scopes: ScopeTuple;
+}[] = [
+  { method: "GET", path: /^\/v4\/batch-plans\/[^/]+$/u, scopes: ["batches:plan"] },
+  {
+    method: "GET",
+    path: /^\/v4\/campaigns\/[^/]+$/u,
+    scopes: ["batches:execute", "campaigns:read", "jobs:cancel"],
+  },
+  { method: "POST", path: /^\/v4\/campaigns\/[^/]+\/cancel$/u, scopes: ["jobs:cancel"] },
+  { method: "GET", path: /^\/v4\/jobs\/[^/]+$/u, scopes: ["jobs:read"] },
+  { method: "GET", path: /^\/v4\/jobs\/[^/]+\/previews$/u, scopes: ["jobs:read"] },
+  {
+    method: "POST",
+    path: /^\/v4\/jobs\/[^/]+\/previews\/[^/]+\/[^/]+\/access$/u,
+    scopes: ["jobs:read"],
+  },
+  { method: "POST", path: /^\/v4\/jobs\/[^/]+\/cancel$/u, scopes: ["jobs:cancel"] },
+  {
+    method: "POST",
+    path: /^\/v4\/artifacts\/[^/]+\/upload-completion$/u,
+    scopes: ["artifacts:write"],
+  },
+  { method: "GET", path: /^\/v4\/artifacts\/[^/]+$/u, scopes: ["artifacts:read"] },
+  {
+    method: "POST",
+    path: /^\/v4\/artifacts\/[^/]+\/access$/u,
+    scopes: ["artifacts:access"],
+  },
+  {
+    method: "DELETE",
+    path: /^\/v4\/artifacts\/[^/]+$/u,
+    scopes: ["artifacts:delete"],
+  },
+];
+
 function remoteJwks(url: string): ReturnType<typeof createRemoteJWKSet> {
   const existing = jwksByUrl.get(url);
   if (existing !== undefined) return existing;
@@ -79,14 +144,21 @@ export const verifyWorkOsToken: VerifyToken = async (token, env) => {
   return { subject, organizationId, scopes };
 };
 
-function requiredScope(url: URL, method: string): string | undefined {
+function requiredScopes(url: URL, method: string): ScopeTuple | undefined {
   const path = url.pathname;
+  const staticScopes = V4_STATIC_SCOPES.get(`${method} ${path}`);
+  if (staticScopes !== undefined) return staticScopes;
+  const parameterRoute = V4_PARAMETER_SCOPES.find(
+    (route) => route.method === method && route.path.test(path),
+  );
+  if (parameterRoute !== undefined) return parameterRoute.scopes;
+
   if (
     path === "/v1/images/generations" ||
     path === "/v1/generations" ||
     path.startsWith("/v2beta/stable-image/generate/")
   ) {
-    return "images:generate";
+    return ["images:generate"];
   }
   if (
     [
@@ -101,27 +173,27 @@ function requiredScope(url: URL, method: string): string | undefined {
     path.startsWith("/v2beta/stable-image/edit/") ||
     path.startsWith("/v2beta/stable-image/upscale/")
   ) {
-    return "images:edit";
+    return ["images:edit"];
   }
   if (["/v1/responses", "/v1/embeddings", "/v1/segmentations"].includes(path)) {
-    return "images:understand";
+    return ["images:understand"];
   }
-  if (path === "/v1/chat/completions" || path === "/v1/prompt-plans") return "batches:plan";
+  if (path === "/v1/chat/completions" || path === "/v1/prompt-plans") return ["batches:plan"];
   if (
     path.startsWith("/v1/predictions") ||
     (path.startsWith("/v1/models/") && path.endsWith("/predictions"))
   ) {
-    return path.endsWith("/cancel") ? "jobs:cancel" : "batches:execute";
+    return [path.endsWith("/cancel") ? "jobs:cancel" : "batches:execute"];
   }
   if (path === "/v1/jobs") {
-    return method === "GET" ? "campaigns:read" : "batches:execute";
+    return [method === "GET" ? "campaigns:read" : "batches:execute"];
   }
-  if (path.startsWith("/v1/uploads")) return "batches:execute";
+  if (path.startsWith("/v1/uploads")) return ["batches:execute"];
   if (path.startsWith("/v1/jobs/")) {
-    return method === "POST" && path.endsWith("/cancel") ? "jobs:cancel" : "campaigns:read";
+    return [method === "POST" && path.endsWith("/cancel") ? "jobs:cancel" : "campaigns:read"];
   }
   if (path === "/v1/artifacts" || path.startsWith("/v1/artifacts/") || path === "/v1/search") {
-    return "artifacts:read";
+    return ["artifacts:read"];
   }
   return undefined;
 }
@@ -202,9 +274,9 @@ export function createGateway(verifyToken: VerifyToken = verifyWorkOsToken) {
       return oauthError(401, "invalid_token", requestId);
     }
 
-    const scope = requiredScope(new URL(request.url), request.method);
-    if (scope !== undefined && !principal.scopes.has(scope)) {
-      return oauthError(403, "insufficient_scope", requestId, scope);
+    const scopes = requiredScopes(new URL(request.url), request.method);
+    if (scopes !== undefined && scopes.some((scope) => !principal.scopes.has(scope))) {
+      return oauthError(403, "insufficient_scope", requestId, scopes.join(" "));
     }
     if (!(await env.RATE_LIMITER.limit({ key: await rateKey(principal) })).success) {
       return new Response("rate limited", {

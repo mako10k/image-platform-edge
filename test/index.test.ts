@@ -9,6 +9,42 @@ const principal = {
   scopes: new Set(["images:edit"]),
 };
 
+const v4Bindings = [
+  ["GET", "/v4/capabilities", []],
+  ["GET", "/v4/model-profiles", []],
+  ["POST", "/v4/prompt-plans", ["batches:plan"]],
+  ["POST", "/v4/generations", ["images:generate"]],
+  ["POST", "/v4/captions", ["images:understand"]],
+  ["POST", "/v4/image-edits", ["images:edit"]],
+  ["POST", "/v4/inpaints", ["images:edit"]],
+  ["POST", "/v4/segmentations", ["images:understand"]],
+  ["POST", "/v4/enhancements", ["images:edit"]],
+  ["POST", "/v4/image-operations", ["images:edit"]],
+  ["POST", "/v4/image-operation-batches", ["images:edit"]],
+  ["POST", "/v4/image-operation-plans", ["images:edit"]],
+  ["POST", "/v4/portrait-mattings", ["images:edit"]],
+  ["POST", "/v4/batch-plans", ["batches:plan"]],
+  ["GET", "/v4/batch-plans/plan-1", ["batches:plan"]],
+  ["GET", "/v4/evaluation-rubrics", ["campaigns:read"]],
+  ["POST", "/v4/campaigns", ["batches:execute", "campaigns:write"]],
+  ["GET", "/v4/campaigns", ["batches:execute", "campaigns:read", "jobs:cancel"]],
+  ["GET", "/v4/campaigns/campaign-1", ["batches:execute", "campaigns:read", "jobs:cancel"]],
+  ["POST", "/v4/campaigns/campaign-1/cancel", ["jobs:cancel"]],
+  ["POST", "/v4/jobs", ["jobs:submit"]],
+  ["GET", "/v4/jobs", ["jobs:read"]],
+  ["GET", "/v4/jobs/job-1", ["jobs:read"]],
+  ["GET", "/v4/jobs/job-1/previews", ["jobs:read"]],
+  ["POST", "/v4/jobs/job-1/previews/step-1/output/access", ["jobs:read"]],
+  ["POST", "/v4/jobs/job-1/cancel", ["jobs:cancel"]],
+  ["POST", "/v4/artifacts/uploads", ["artifacts:write"]],
+  ["POST", "/v4/artifacts/artifact-1/upload-completion", ["artifacts:write"]],
+  ["GET", "/v4/artifacts", ["artifacts:read"]],
+  ["GET", "/v4/artifacts/artifact-1", ["artifacts:read"]],
+  ["POST", "/v4/artifacts/artifact-1/access", ["artifacts:access"]],
+  ["DELETE", "/v4/artifacts/artifact-1", ["artifacts:delete"]],
+  ["POST", "/v4/artifacts/search", ["artifacts:read"]],
+] as const;
+
 function env(success = true): Env {
   return {
     WORKOS_ISSUER: "https://example.authkit.app",
@@ -150,6 +186,65 @@ describe("OAuth gateway", () => {
       `Bearer error="insufficient_scope", scope="${scope}"`,
     );
     expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it.each(v4Bindings)("enforces the V4 scope tuple for %s %s", async (method, path, scopes) => {
+    const upstream = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", upstream);
+    const allowed = await createGateway(
+      vi.fn().mockResolvedValue({ ...principal, scopes: new Set(scopes) }),
+    )(
+      new Request(`https://api-staging.image.mk10.org${path}`, {
+        method,
+        headers: { Authorization: "Bearer signed.jwt" },
+      }),
+      env(),
+    );
+    expect(allowed.status).toBe(204);
+    expect(upstream).toHaveBeenCalledOnce();
+
+    if (scopes.length === 0) return;
+
+    for (const omittedScope of scopes) {
+      upstream.mockClear();
+      const denied = await createGateway(
+        vi.fn().mockResolvedValue({
+          ...principal,
+          scopes: new Set(scopes.filter((scope) => scope !== omittedScope)),
+        }),
+      )(
+        new Request(`https://api-staging.image.mk10.org${path}`, {
+          method,
+          headers: { Authorization: "Bearer signed.jwt" },
+        }),
+        env(),
+      );
+      expect(denied.status).toBe(403);
+      expect(denied.headers.get("WWW-Authenticate")).toBe(
+        `Bearer error="insufficient_scope", scope="${scopes.join(" ")}"`,
+      );
+      expect(upstream).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([
+    ["PATCH", "/v4/capabilities"],
+    ["GET", "/v4/not-a-route"],
+    ["GET", "/v4/jobs/job-1/extra"],
+  ] as const)("leaves V4 application routing ownership to upstream for %s %s", async (method, path) => {
+    const upstream = vi.fn().mockResolvedValue(new Response(null, { status: 404 }));
+    vi.stubGlobal("fetch", upstream);
+    const response = await createGateway(
+      vi.fn().mockResolvedValue({ ...principal, scopes: new Set() }),
+    )(
+      new Request(`https://api-staging.image.mk10.org${path}`, {
+        method,
+        headers: { Authorization: "Bearer signed.jwt" },
+      }),
+      env(),
+    );
+    expect(response.status).toBe(404);
+    expect(upstream).toHaveBeenCalledOnce();
   });
 
   it("rejects declared oversize and rate limits without upstream", async () => {
