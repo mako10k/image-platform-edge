@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "cors": {
+    "access-control-allow-origin": "https://image.mk10.org",
+    "access-control-expose-headers": "X-Request-ID, Retry-After, WWW-Authenticate, Location, Idempotent-Replay"
+  },
+  "job_status": "completed"
+}

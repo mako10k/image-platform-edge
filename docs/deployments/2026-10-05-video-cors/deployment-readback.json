@@ -1,0 +1,15 @@
+{
+  "worker": "image-platform-oauth-edge-staging",
+  "upload_success": true,
+  "deployment_id": "054c60ded7d542f5954bc4374547186b",
+  "modified_on": "2026-10-05T01:09:34.0895Z",
+  "source_sha256": "3d8ab9a92f731642bad6369b3fe645104765f0106318ef3a3f502275586bcf90",
+  "runtime_settings_preserved": true,
+  "secret_bindings_preserved": true,
+  "server_annotation_change": {
+    "key": "workers/triggered_by",
+    "before": "version_upload",
+    "after": "upload"
+  },
+  "new_inference_submitted": false
+}

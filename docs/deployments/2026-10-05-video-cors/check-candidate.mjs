@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {createGateway} from './candidate.js';
+const env={WORKOS_ISSUER:'https://issuer.test',WORKOS_JWKS_URL:'https://issuer.test/jwks',WORKOS_AUDIENCE:'fake',MODAL_UPSTREAM_URL:'https://upstream.test',MODAL_PROXY_KEY:'fixture',MODAL_PROXY_SECRET:'fixture',MAX_REQUEST_BYTES:'16777216',RATE_LIMITER:{limit:async()=>({success:true})}};
+let calls=0;
+globalThis.fetch=async()=>{calls++;return new Response('{}',{status:202,headers:{Location:'https://api-staging.image.mk10.org/v4/jobs/job-fixture','Retry-After':'1','Idempotent-Replay':'false'}})};
+const handler=createGateway(async()=>({organizationId:'fixture',subject:'fixture',scopes:new Set(['videos:generate'])}));
+const response=await handler(new Request('https://api-staging.image.mk10.org/v4/video-generations',{method:'POST',headers:{Origin:'https://image.mk10.org',Authorization:'Bearer fixture'},body:'{}'}),env);
+assert.equal(response.status,202);
+assert.equal(response.headers.get('Access-Control-Allow-Origin'),'https://image.mk10.org');
+const exposed=response.headers.get('Access-Control-Expose-Headers').split(',').map(x=>x.trim());
+for(const name of ['X-Request-ID','Retry-After','WWW-Authenticate','Location','Idempotent-Replay'])assert(exposed.includes(name));
+assert.equal(response.headers.get('Idempotent-Replay'),'false');
+assert.equal(response.headers.get('Location'),'https://api-staging.image.mk10.org/v4/jobs/job-fixture');
+const denied=await handler(new Request('https://api-staging.image.mk10.org/v4/video-generations',{method:'OPTIONS',headers:{Origin:'https://other.test','Access-Control-Request-Method':'POST'}}),env);
+assert.equal(denied.status,403);
+assert.equal(calls,1);
+console.log(JSON.stringify({compiled_worker_mock_202:true,required_headers_exposed:true,other_origin_denied:true,live_requests:false}));
